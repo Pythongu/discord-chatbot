@@ -5,7 +5,6 @@ from discord.ext import commands
 from groq import Groq
 import asyncio
 import time
-strt = time.time()
 
 #Intents are a feature of Discord that tells the gateway exactly which events to send your bot (taken from https://www.pythondiscord.com/pages/tags/intents/)
 intent = discord.Intents.default()
