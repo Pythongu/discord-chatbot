@@ -10,19 +10,18 @@ import time
 intent = discord.Intents.default()
 intent.message_content = True
 
-#msglist stores messages from ?askdm 
-#userlist stores the user's Discord ID
+#dm_msg stores messages from ?askdm 
+#dm_userlist stores the user's Discord ID
 #localmemory is used to store the specific messages needed for specific DMs
-msglist = []
-userlist = []
-localmemory = []
+dm_msg = []
+dm_userlist = []
 
-#msg list is used to store ?ask messages
-msg = []
+#msglist list is used to store ?ask messages
+channellist = []
+msglist = []
 
 #limit to how many messages are able to be stored across all functions, change this value to your liking
 msgstorelimit = 100
-
 
 envpath = find_dotenv()
 load_dotenv(envpath)
@@ -32,14 +31,30 @@ bot_token = os.environ.get("bot_token")
 ai = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 client = commands.Bot(command_prefix="?", intents=intent)
 
-# function to store chats from ask() function
-def storechats(messages):
-        if len(msg) < msgstorelimit:
-                msg.append(messages)
+#stores chats from askdm()
+def storechats(msglst,idlst,message,ID):      
+        print(len(msglst))
+        if len(msglst) < msgstorelimit:
+                print("should append")
+                msglst.append(message)
+                idlst.append(ID)
         else:
-                msg.pop(0)
-                msg.append(messages)
+                print("---POPPING---")
+                msglst.pop(0)
+                idlst.pop(0)
+                msglst.append(message)
+                idlst.append(ID)
 
+#retrieves messages required for a specific DM, this is so conversations from other DMs are not passed into different DMs
+def specificmem(msglst,idlst,ID):
+        localmemory = []
+        for i in range(len(idlst)):
+                if idlst[i] == ID:
+                        print("SHOULD APPEND")
+                        localmemory.append(msglst[i])
+                        print(f"localmem {localmemory}")
+                        print(f"round {i+1} complete")
+        return localmemory
 
 #function to get and store ai's response
 async def airequest(qst,memory):
@@ -62,11 +77,19 @@ async def ask(ctx, *, question: str):
         if ctx.channel.type is discord.ChannelType.private:
                 await discord.DMChannel.send(ctx.author,"Cannot use **?ask** command in DMs. Use **?askdm** command instead.")
         else:
-                try:
+                # try:    
+                        # serverid = ctx.guild.id
+                        channelid = ctx.channel.id
+                        #^ If server specific memory instead of channelspecific memory is desired, uncomment serverid and replace all instances of channelid with serverid
+
                         await ctx.message.delete()
                         placeholder = await ctx.send(f"Thinking... ")
                         secstart = time.time()
-                        await airequest(question,msg)
+
+                        storechats(msglist,channellist,{"role": "user", "content": question},channelid)
+                        localmem = specificmem(msglist,channellist,channelid)
+
+                        await airequest(question,localmem)
                         respondvar = f"<@{ctx.author.id}>\n"+globresponse
                         respondvarnew = ""
                         length = print("LENGTH: "+str(len(respondvar)))
@@ -80,8 +103,6 @@ async def ask(ctx, *, question: str):
                         else:
                                 respondvarnew = respondvar
 
-                        storechats({"role": "user", "content": question})
-
                         print("User asked:", question)
 
                         await ctx.send(respondvarnew)
@@ -92,46 +113,22 @@ async def ask(ctx, *, question: str):
                         print("Done request.")
                         
 
-                        storechats({"role": "assistant", "content": globresponse})
-                        print(msg)
-                        print("Stored messages: "+str(len(msg)))
+                        storechats(msglist,channellist,{"role": "assistant", "content": globresponse},channelid)
+                        print(msglist)      
+                        print("Stored messages: "+str(len(msglist)))
 
-                except:
-                        await placeholder.delete()
-                        print("Error processing request.")
-                        errorctx = await ctx.send("There was an error processing your request.")
-                        await asyncio.sleep(3)
-                        await errorctx.delete()
+                # except:
+                #         await placeholder.delete()
+                #         print("Error processing request.")
+                #         errorctx = await ctx.send("There was an error processing your request.")
+                #         await asyncio.sleep(3)
+                #         await errorctx.delete()
 
-#stores chats from askdm()
-def storedmchats(message,usr):      
-        print(len(msglist))
-        if len(msglist) < msgstorelimit:
-                print("should append")
-                msglist.append(message)
-                userlist.append(usr)
-        else:
-                print("---POPPING---")
-                msglist.pop(0)
-                userlist.pop(0)
-                msglist.append(message)
-                userlist.append(usr)
 
-#retrieves messages required for a specific DM, this is so conversations from other DMs are not passed into different DMs
-def DMspecificmem(ID):
-        localmemory = []
-        for i in range(len(userlist)):
-                if userlist[i] == ID:
-                        print(msglist)
-                        print(userlist)
-                        print("SHOULD APPEND")
-                        localmemory.append(msglist[i])
-                        print(f"localmem {localmemory}")
-                        print(f"round {i+1} complete")
-        return localmemory
+
 
 #defines discord command ?askdm as askdm()
-#sends user's input and returns ai response to send in DMs to the user. Calls storedmchats() for memory
+#sends user's input and returns ai response to send in DMs to the user. Calls storechats() for memory
 @client.command()
 async def askdm(ctx, *, question: str):
         user = ctx.author
@@ -140,11 +137,11 @@ async def askdm(ctx, *, question: str):
         secstart = time.time()
         
         print(f"--USER {user}--")
-        storedmchats({"role": "user", "content": question},userid)
+        storechats(dm_msg,dm_userlist,{"role": "user", "content": question},userid)
 
-        print(msglist)
+        print(dm_msg)
 
-        localmemory = DMspecificmem(userid)
+        localmemory = specificmem(dm_msg,dm_userlist,userid)
 
         await airequest(question,localmemory) 
         newresponse = ""
@@ -170,9 +167,9 @@ async def askdm(ctx, *, question: str):
         else:
                 await discord.DMChannel.send(user,globresponse)         
 
-        storedmchats({"role": "assistant", "content": globresponse},userid)
+        storechats(dm_msg,dm_userlist,{"role": "assistant", "content": globresponse},userid)
 
-        print(msglist)
+        print(dm_msg)
         secend = time.time()
         await placeholder.edit(content=f"(Thought for {secend-secstart:.1f}s)")
 
