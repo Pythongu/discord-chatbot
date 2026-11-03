@@ -77,7 +77,7 @@ async def ask(ctx, *, question: str):
         if ctx.channel.type is discord.ChannelType.private:
                 await discord.DMChannel.send(ctx.author,"Cannot use **?ask** command in DMs. Use **?askdm** command instead.")
         else:
-                # try:    
+                try:    
                         # serverid = ctx.guild.id
                         channelid = ctx.channel.id
                         #^ If server specific memory instead of channelspecific memory is desired, uncomment serverid and replace all instances of channelid with serverid
@@ -117,12 +117,12 @@ async def ask(ctx, *, question: str):
                         print(msglist)      
                         print("Stored messages: "+str(len(msglist)))
 
-                # except:
-                #         await placeholder.delete()
-                #         print("Error processing request.")
-                #         errorctx = await ctx.send("There was an error processing your request.")
-                #         await asyncio.sleep(3)
-                #         await errorctx.delete()
+                except:
+                        await placeholder.delete()
+                        print("Error processing request.")
+                        errorctx = await ctx.send("There was an error processing your request.")
+                        await asyncio.sleep(3)
+                        await errorctx.delete()
 
 
 
